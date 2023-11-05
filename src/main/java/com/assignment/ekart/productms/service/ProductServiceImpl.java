@@ -5,11 +5,16 @@ import com.assignment.ekart.productms.model.ProductDetails;
 import com.assignment.ekart.productms.repository.ProductRepo;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import static com.assignment.ekart.productms.config.Constant.*;
 
 @Service
 @Transactional
@@ -23,7 +28,7 @@ public class ProductServiceImpl implements ProductService{
         List<ProductDetails> pdl = new ArrayList<>();
         try{
             if(ape.isEmpty()){
-                throw new Exception("No product is available.");
+                throw new Exception(PRODUCT_NOT_FOUND);
             }else{
                 for(AllProductEntity p : ape) {
                     ProductDetails pd = new ProductDetails();
@@ -48,7 +53,7 @@ public class ProductServiceImpl implements ProductService{
     public ProductDetails getProductById(Integer productId) throws Exception {
         Optional<AllProductEntity> productData = productRepo.findById(productId);
         try{
-            AllProductEntity product = productData.orElseThrow(() -> new Exception("Product not available"));
+            AllProductEntity product = productData.orElseThrow(() -> new Exception(PRODUCT_NOT_FOUND));
             ProductDetails pd = ProductDetails.builder()
                     .productId(product.getProductId())
                     .name(product.getName())
@@ -80,9 +85,9 @@ public class ProductServiceImpl implements ProductService{
                     .category(product.getCategory())
                     .build();
             productRepo.save(pe);
-            return "Product added.";
+            return SUCCESS_ADD_PRODUCT;
         }catch (Exception e){
-            return "Product addition failed. "+ e.getMessage();
+            return FAILED_ADD_PRODUCT + e.getMessage();
         }
     }
 
@@ -90,10 +95,39 @@ public class ProductServiceImpl implements ProductService{
     public String deleteProduct() {
         List<AllProductEntity> productData = productRepo.findAll();
         if(productData.isEmpty()){
-            return "Product is not present.";
+            return PRODUCT_NOT_FOUND;
         }else{
             productRepo.deleteAll();
-            return "Product deleted.";
+            return DELETION_SUCCESS;
+        }
+    }
+
+    @Override
+    public String deleteProductById(Integer id) {
+        try{
+            Optional<AllProductEntity> prod  = productRepo.findById(id);
+            if(prod.isPresent()){
+                productRepo.deleteById(id);
+                return DELETION_SUCCESS;
+            }else{
+                throw new SQLException(PRODUCT_NOT_FOUND);
+            }
+        }catch (Exception e){
+            return DELETION_FAILED + e.getMessage();
+        }
+    }
+
+    public ResponseEntity<String> updateProducts(int productId, int availQty){
+        try{
+            Optional<AllProductEntity> productData = productRepo.findById(productId);
+            if(productData.isPresent()){
+                AllProductEntity productEntity = productData.get();
+                productEntity.setAvailableQuantity(availQty);
+                productRepo.save(productEntity);
+            }
+            return new ResponseEntity<>(UPDATE_SUCCESS, HttpStatus.OK);
+        }catch (Exception e){
+            return new ResponseEntity<>(UPDATE_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }
